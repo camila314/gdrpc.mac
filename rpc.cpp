@@ -28,6 +28,10 @@ char const* levelTypes[5] = {"none", "official", "editor", "saved", "online"};
 
 char const* levelDifficulties[9] = {"Auto", "Demon", "NA", "n", "Easy",
                                     "Normal", "Hard", "Harder", "Insane"};
+
+char const* imageDifficulties[9] = {"auto", "demon", "na", "n", "easy",
+                                    "normal", "hard", "harder", "insane"};
+
 template<typename ... Args>
 std::string string_format(const std::string& format, Args ... args ) {
     size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;
@@ -45,6 +49,14 @@ enum LevelType {
     SAVED,
     ONLINE,
 };
+
+char const* findDifficulty(GJGameLevel* lv) {
+    auto diff = lv->_difficulty();
+    if (!diff.denominator)
+        return "NA";
+    return levelDifficulties[diff.numerator/diff.denominator + 3];
+}
+
 char const* findGameMode(PlayLayer* pl) {
     GameModes gm = pl->_gameModes();
     if (gm.cube)
@@ -65,6 +77,27 @@ char const* findGameMode(PlayLayer* pl) {
     return "Cube";
 }
 
+char const* genSImage(GJGameLevel* lv) {
+    auto diff = lv->_difficulty();
+
+    if (!lv->_levelId())
+        return "na";
+    if (lv->_levelId() < 128)
+        return officialDifficulties[lv->_levelId()-1];
+    if (!diff.denominator)
+        return "na";
+
+    std::string dBase(imageDifficulties[diff.numerator/diff.denominator + 3]);
+
+    if (lv->_epic()) {
+        dBase += "-epic";
+    } else if (lv->_score()) {
+        dBase += "-featured";
+    }
+
+    return dBase.c_str();
+}
+
 float findPercent(PlayLayer* pl) {
     auto playerobj = pl->_player1();
     return (playerobj->_positionX() / pl->_length())*100.;
@@ -74,7 +107,7 @@ void inject() {
 
     std::string state("empt");
     std::string details("empt");
-    std::string smallImage;
+    std::string smallImage("");
     std::string smallText("empt");
 
     auto accountManager = GJAccountManager::sharedState();
@@ -113,9 +146,10 @@ void inject() {
                 int objects = editorLayer->_objects()->count();
                 std::string objectCount(std::to_string(objects));
 
-                std::ostringstream ss;
-                ss << levelName << " (" << objectCount << " objects)";
-                state = ss.str();
+                //printf("level name be %s\n", levelName.c_str());
+
+                state = std::string(levelName) + " (" + objectCount +
+                        " objects)";
 
                 details = "Editing level";
             }
@@ -134,53 +168,57 @@ void inject() {
             char const* gameMode = findGameMode(playLayer);
 
             int levelId = level->_levelId();
-            int levelStars = 69;
+            int levelStars = level->_stars();
 
             enum LevelType levelType = ONLINE;
             if (levelId < 128)
                 levelType = OFFICIAL;
             if (editorLayer)
                 levelType = EDITOR;
-            bool levelIsFeatured = false;
-            bool levelIsEpic = true;
+            if (!levelId)
+                levelType = SAVED;
 
+
+            printf("%d\n", levelId);
             std::string levelName(level->_name());
             std::string levelCreator(level->_author());
-            std::string levelDifficulty("ez");
+            std::string levelDifficulty(findDifficulty(level));
+
+            smallImage = std::string(genSImage(level));
 
             if (levelType == OFFICIAL) {
                 levelCreator = "RobTop";
-                printf("%d\n", levelId);
                 levelDifficulty = std::string(officialDifficulties[levelId-1]);
-                levelIsFeatured = false;
-                levelIsEpic = false;
             } else if (levelType == EDITOR) {
                 levelDifficulty = "na";
             }
 
-            printf("what\n");
-            printf("%f %d %d\n", percent, bestNormal, bestPractice);
-
+            printf("id is %d\n", levelId);
 
             state = "Attempt " + std::to_string(attempt) +
                     " [" + std::to_string(static_cast<int>(percent)) +
                     "%, best is " + std::to_string(bestNormal) + "%]";
 
-            details = levelName + " by " + std::string(levelCreator);
+            details = levelName;
+            if (levelType != SAVED)
+                details = details + " by " + std::string(levelCreator);
 
             if (levelType == EDITOR)
                 details = details + " (editing)";
 
-            if (levelType != OFFICIAL)
+            if (levelType == ONLINE)
                 details = details + " (" + std::to_string(levelId) + ")";
 
-            smallText = std::to_string(levelStars) + "star, " +
+            if (levelType == SAVED)
+                details = details + " (Local level)";
+
+            smallText = std::to_string(levelStars) + " stars, " +
                         std::string(levelDifficulty) +
                         " (ID: " + std::to_string(levelId) + ")";
         }
 
         updateDiscordPresence(state.c_str(), details.c_str(),
-                              "easy-featured", smallText.c_str());
+                              smallImage.c_str(), smallText.c_str());
         sleep(1);
     }
 }
