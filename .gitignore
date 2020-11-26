@@ -1,0 +1,5 @@
+*.dylib
+*.dSYM
+.DS_Store
+*.toml
+gd.rpc/
