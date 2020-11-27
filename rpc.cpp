@@ -26,11 +26,15 @@ char const* officialDifficulties[21] = {"easy", "easy", "normal",
                                         "insane"};
 char const* levelTypes[5] = {"none", "official", "editor", "saved", "online"};
 
-char const* levelDifficulties[9] = {"Auto", "Demon", "NA", "n", "Easy",
-                                    "Normal", "Hard", "Harder", "Insane"};
+char const* levelDifficulties[14] = {"Auto", "Demon", "NA", "n", "Easy",
+                                    "Normal", "Hard", "Harder", "Insane",
+                                    "Easy Demon", "Medium Demon", "Hard Demon",
+                                    "Insane Demon", "Extreme Demon"};
 
-char const* imageDifficulties[9] = {"auto", "demon", "na", "n", "easy",
-                                    "normal", "hard", "harder", "insane"};
+char const* imageDifficulties[14] = {"auto", "demon", "na", "n", "easy",
+                                    "normal", "hard", "harder", "insane",
+                                    "easy-demon", "medium-demon", "hard-demon",
+                                    "insane-demon", "extreme-demon"};
 
 template<typename ... Args>
 std::string string_format(const std::string& format, Args ... args ) {
@@ -52,9 +56,13 @@ enum LevelType {
 
 char const* findDifficulty(GJGameLevel* lv) {
     auto diff = lv->_difficulty();
+    int add = 3;
     if (!diff.denominator)
         return "NA";
-    return levelDifficulties[diff.numerator/diff.denominator + 3];
+    if (lv->_demon())
+        add += 5;
+
+    return levelDifficulties[diff.numerator/diff.denominator + add];
 }
 
 char const* findGameMode(PlayLayer* pl) {
@@ -86,8 +94,10 @@ char const* genSImage(GJGameLevel* lv) {
         return officialDifficulties[lv->_levelId()-1];
     if (!diff.denominator)
         return "na";
-
-    std::string dBase(imageDifficulties[diff.numerator/diff.denominator + 3]);
+    int add = 3;
+    if (lv->_demon())
+        add += 5;
+    std::string dBase(imageDifficulties[diff.numerator/diff.denominator + add]);
 
     if (lv->_epic()) {
         dBase += "-epic";
@@ -179,7 +189,6 @@ void inject() {
                 levelType = SAVED;
 
 
-            printf("%d\n", levelId);
             std::string levelName(level->_name());
             std::string levelCreator(level->_author());
             std::string levelDifficulty(findDifficulty(level));
@@ -192,8 +201,6 @@ void inject() {
             } else if (levelType == EDITOR) {
                 levelDifficulty = "na";
             }
-
-            printf("id is %d\n", levelId);
 
             state = "Attempt " + std::to_string(attempt) +
                     " [" + std::to_string(static_cast<int>(percent)) +
