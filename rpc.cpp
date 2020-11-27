@@ -169,10 +169,6 @@ void inject() {
             int bestNormal = level->_bestNormal();
             int bestPractice = level->_bestPractice();
 
-            char const* mode = "normal";
-            if (playLayer->_practiceMode())
-                mode = "practice";
-
             //  gathering level data
 
             char const* gameMode = findGameMode(playLayer);
@@ -202,9 +198,15 @@ void inject() {
                 levelDifficulty = "na";
             }
 
-            state = "Attempt " + std::to_string(attempt) +
-                    " [" + std::to_string(static_cast<int>(percent)) +
-                    "%, best is " + std::to_string(bestNormal) + "%]";
+            if (!playLayer->_practiceMode()) {
+                state = "Attempt " + std::to_string(attempt) +
+                        " [" + std::to_string(static_cast<int>(percent)) +
+                        "%, best is " + std::to_string(bestNormal) + "%]";
+            } else {
+                state = "Practice mode [" +
+                        std::to_string(static_cast<int>(percent)) +
+                        "%, best is " + std::to_string(bestPractice) + "%]";
+            }
 
             details = levelName;
             if (levelType != SAVED)
