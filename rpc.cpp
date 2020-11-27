@@ -154,13 +154,9 @@ void inject() {
                 std::string levelName(editorLevel->_name());
 
                 int objects = editorLayer->_objects()->count();
-                std::string objectCount(std::to_string(objects));
 
-                //printf("level name be %s\n", levelName.c_str());
-
-                state = std::string(levelName) + " (" + objectCount +
-                        " objects)";
-
+                state = levelName + " (" +
+                        std::to_string(objects) + " objects)";
                 details = "Editing level";
             }
         } else {    // playing a level
