@@ -1,7 +1,5 @@
 // Copyright
-#include <time.h>
 #include <unistd.h>
-#include <vector>
 #include <memory>
 #include <string>
 #include <gdstdlib.hpp>
@@ -36,15 +34,6 @@ char const* imageDifficulties[14] = {"auto", "demon", "na", "n", "easy",
                                     "easy-demon", "medium-demon", "hard-demon",
                                     "insane-demon", "extreme-demon"};
 
-template<typename ... Args>
-std::string string_format(const std::string& format, Args ... args ) {
-    size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;
-    if (size <= 0)
-        throw std::runtime_error("Error during formatting.");
-    std::unique_ptr<char[]> buf(new char[size]);
-    snprintf(buf.get(), size, format.c_str(), args ...);
-    return std::string(buf.get(), buf.get() + size - 1);
-}
 
 enum LevelType {
     NONE = 0,
@@ -85,7 +74,7 @@ char const* findGameMode(PlayLayer* pl) {
     return "Cube";
 }
 
-char const* genSImage(GJGameLevel* lv) {
+char const* genSmallImage(GJGameLevel* lv) {
     auto diff = lv->_difficulty();
 
     if (!lv->_levelId())
@@ -112,6 +101,7 @@ float findPercent(PlayLayer* pl) {
     auto playerobj = pl->_player1();
     return (playerobj->_positionX() / pl->_length())*100.;
 }
+
 void inject() {
     int scene;
 
@@ -185,7 +175,7 @@ void inject() {
             std::string levelCreator(level->_author());
             std::string levelDifficulty(findDifficulty(level));
 
-            smallImage = std::string(genSImage(level));
+            smallImage = std::string(genSmallImage(level));
 
             if (levelType == OFFICIAL) {
                 levelCreator = "RobTop";
