@@ -1,11 +1,18 @@
-// Copyright
+#define CAC_PROJ_NAME "Discord Rich Presence"
+#include <CacKit>
 #include <unistd.h>
 #include <memory>
 #include <string>
-#include <gdstdlib.hpp>
 #include "disc.hpp"
 
-char const* sceneEnum[14] = {"what", "Idle", "Selecting level",
+template <typename T>
+std::string to_string(T val) {
+    std::stringstream stream;
+    stream << val;
+    return stream.str();
+}
+
+char const* sceneEnum[14] = {"uwu", "Idle", "Selecting level",
                                       "old_my_levels", "Watching level info",
                                       "Searching levels", "unused",
                                       "Browsing leaderboards",
@@ -18,9 +25,9 @@ char const* modeEnum[7] = {"Cube", "Ship", "UFO", "Ball",
 char const* officialDifficulties[21] = {"easy", "easy", "normal",
                                         "normal", "hard", "hard", "harder",
                                         "harder", "harder", "insane", "insane",
-                                        "insane", "insane", "easy_demon",
+                                        "insane", "insane", "hard-demon",
                                         "insane", "insane", "harder",
-                                        "easy_demon", "harder", "medium_demon",
+                                        "hard-demon", "harder", "hard-demon",
                                         "insane"};
 char const* levelTypes[5] = {"none", "official", "editor", "saved", "online"};
 
@@ -44,62 +51,71 @@ enum LevelType {
 };
 
 char const* findDifficulty(GJGameLevel* lv) {
-    auto diff = lv->_difficulty();
-    int add = 3;
-    if (!diff.denominator)
-        return "NA";
-    if (lv->_demon())
-        add += 5;
-
-    return levelDifficulties[diff.numerator/diff.denominator + add];
+    if (lv) {
+        auto diff = lv->_difficulty();
+        int add = 3;
+        if (!diff.denominator)
+            return "NA";
+        if (lv->_demon())
+            add += 5;
+        return levelDifficulties[diff.numerator/diff.denominator + add];
+    }
+    return "NA";
 }
 
 char const* findGameMode(PlayLayer* pl) {
-    GameModes gm = pl->_gameModes();
-    if (gm.cube)
-        return "Cube";
-    if (gm.ship)
-        return"Ship";
-    if (gm.ball)
-        return "Ball";
-    if (gm.ufo)
-        return "UFO";
-    if (gm.wave)
-        return "Wave";
-    if (gm.robot)
-        return "Robot";
-    if (gm.spider)
-        return "Spider";
-
+    if (pl) {
+        GameModes gm = pl->_gameModes();
+        if (gm.cube)
+            return "Cube";
+        if (gm.ship)
+            return"Ship";
+        if (gm.ball)
+            return "Ball";
+        if (gm.ufo)
+            return "UFO";
+        if (gm.wave)
+            return "Wave";
+        if (gm.robot)
+            return "Robot";
+        if (gm.spider)
+            return "Spider";
+    }
     return "Cube";
 }
 
-char const* genSmallImage(GJGameLevel* lv) {
-    auto diff = lv->_difficulty();
+std::string genSmallImage(GJGameLevel* lv) {
+    if (lv) {
+        auto diff = lv->_difficulty();
 
-    if (!lv->_levelId())
-        return "na";
-    if (lv->_levelId() < 128)
-        return officialDifficulties[lv->_levelId()-1];
-    if (!diff.denominator)
-        return "na";
-    int add = 3;
-    if (lv->_demon())
-        add += 5;
-    std::string dBase(imageDifficulties[diff.numerator/diff.denominator + add]);
+        if (!lv->_levelId())
+            return "na";
+        if (lv->_levelId() < 128)
+            return officialDifficulties[lv->_levelId()-1];
+        if (!diff.denominator)
+            return "na";
+        int add = 3;
+        if (lv->_demon())
+            add += 5;
 
-    if (lv->_epic()) {
-        dBase += "-epic";
-    } else if (lv->_score()) {
-        dBase += "-featured";
+        std::string dBase(imageDifficulties[diff.numerator/diff.denominator + add]);
+
+        if (lv->_epic()) {
+            dBase += "-epic";
+        } else if (lv->_score()) {
+            dBase += "-featured";
+        }
+        return dBase;
     }
-
-    return dBase.c_str();
+    return "na";
 }
 
 float findPercent(PlayLayer* pl) {
-    auto playerobj = pl->_player1();
-    return (playerobj->_positionX() / pl->_length())*100.;
+    if (pl) {
+        auto playerobj = pl->_player1();
+        return (playerobj->_xPos() / pl->_length())*100.;
+    }
+    return 0.;
 }
 
 void inject() {
@@ -114,10 +130,15 @@ void inject() {
     auto gameManager = GameManager::sharedState();
     auto playLayer = gameManager->_playLayer();
     auto editorLayer = gameManager->_editorLayer();
-    auto player = playLayer->_player1();
     auto username = accountManager->_username();
-    auto levelSettings = playLayer->_levelSettings();
-    auto level = levelSettings->_level();
+
+    PlayerObject *player;
+    LevelSettingsObject *levelSettings;
+    if (playLayer) player = playLayer->_player1();
+    if (playLayer) levelSettings = playLayer->_levelSettings();
+
+    GJGameLevel* level;
+    if (levelSettings) level = levelSettings->_level();
 
     discordInit();
 
@@ -125,16 +146,20 @@ void inject() {
         playLayer = gameManager->_playLayer();
         editorLayer = gameManager->_editorLayer();
 
-        player = playLayer->_player1();
         username = accountManager->_username();
-        levelSettings = playLayer->_levelSettings();
-        level = levelSettings->_level();
+        if (playLayer) player = playLayer->_player1();
+        else player = nullptr;
+        if (playLayer) levelSettings = playLayer->_levelSettings();
+        else levelSettings = nullptr;
+        if (levelSettings) level = levelSettings->_level();
+        else level = nullptr;
 
         if (!username) {
             username = "Player";
         }
 
         if (!level) {    // not playing level
+            smallImage = "";
             if (!editorLayer) {
                 scene = gameManager->_scene();
                 details = std::string(sceneEnum[scene+1]);
@@ -145,22 +170,28 @@ void inject() {
 
                 int objects = editorLayer->_objects()->count();
 
-                state = levelName + " (" +
-                        std::to_string(objects) + " objects)";
+                state = levelName + " (" + to_string(objects) + " objects)";
                 details = "Editing level";
             }
         } else {    // playing a level
             float percent = findPercent(playLayer);
-            int attempt = playLayer->_attempt();
-            int bestNormal = level->_bestNormal();
-            int bestPractice = level->_bestPractice();
+            int attempt;
+            if (playLayer) attempt = playLayer->_attempt();
+            int bestNormal;
+            if (level) bestNormal = level->_bestNormal();
+            int bestPractice;
+            if (level) bestPractice = level->_bestPractice();
 
             //  gathering level data
 
             char const* gameMode = findGameMode(playLayer);
 
-            int levelId = level->_levelId();
-            int levelStars = level->_stars();
+            int levelId;
+            if (level) levelId = level->_levelId();
+            else levelId = 0;
+            int levelStars;
+            if (level) levelStars = level->_stars();
+            else levelStars = 0;
 
             enum LevelType levelType = ONLINE;
             if (levelId < 128)
@@ -171,11 +202,15 @@ void inject() {
                 levelType = SAVED;
 
 
-            std::string levelName(level->_name());
-            std::string levelCreator(level->_author());
+            std::string levelName;
+            if (level) levelName = level->_name();
+            else levelName = "Unnamed 0";
+            std::string levelCreator;
+            if (level) levelCreator = level->_author();
+            else levelCreator = "Player";
             std::string levelDifficulty(findDifficulty(level));
 
-            smallImage = std::string(genSmallImage(level));
+            smallImage = genSmallImage(level);
 
             if (levelType == OFFICIAL) {
                 levelCreator = "RobTop";
@@ -184,14 +219,14 @@ void inject() {
                 levelDifficulty = "na";
             }
 
-            if (!playLayer->_practiceMode()) {
-                state = "Attempt " + std::to_string(attempt) +
-                        " [" + std::to_string(static_cast<int>(percent)) +
-                        "%, best is " + std::to_string(bestNormal) + "%]";
+            if (playLayer && !playLayer->_practiceMode()) {
+                state = "Attempt " + to_string(attempt) +
+                        " [" + to_string(static_cast<int>(percent)) +
+                        "%, best is " + to_string(bestNormal) + "%]";
             } else {
                 state = "Practice mode [" +
-                        std::to_string(static_cast<int>(percent)) +
-                        "%, best is " + std::to_string(bestPractice) + "%]";
+                        to_string(static_cast<int>(percent)) +
+                        "%, best is " + to_string(bestPractice) + "%]";
             }
 
             details = levelName;
@@ -202,14 +237,14 @@ void inject() {
                 details = details + " (editing)";
 
             if (levelType == ONLINE)
-                details = details + " (" + std::to_string(levelId) + ")";
+                details = details + " (" + to_string(levelId) + ")";
 
             if (levelType == SAVED)
                 details = details + " (Local level)";
 
-            smallText = std::to_string(levelStars) + " stars, " +
+            smallText = to_string(levelStars) + " stars, " +
                         std::string(levelDifficulty) +
-                        " (ID: " + std::to_string(levelId) + ")";
+                        " (ID: " + to_string(levelId) + ")";
         }
 
         updateDiscordPresence(state.c_str(), details.c_str(),
